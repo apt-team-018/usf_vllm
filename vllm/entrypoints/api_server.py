@@ -40,17 +40,18 @@ async def health() -> Response:
     return Response(status_code=200)
 
 
-@app.post("/generate")
-async def generate(request: Request) -> Response:
-    """Generate completion for the request.
-
-    The request should be a JSON object with the following fields:
-    - prompt: the prompt to use for the generation.
-    - stream: whether to stream the results or not.
-    - other fields: the sampling parameters (See `SamplingParams` for details).
-    """
-    request_dict = await request.json()
-    return await _generate(request_dict, raw_request=request)
+# DISABLED: /generate endpoint - only chat endpoints are active
+# @app.post("/generate")
+# async def generate(request: Request) -> Response:
+#     """Generate completion for the request.
+#
+#     The request should be a JSON object with the following fields:
+#     - prompt: the prompt to use for the generation.
+#     - stream: whether to stream the results or not.
+#     - other fields: the sampling parameters (See `SamplingParams` for details).
+#     """
+#     request_dict = await request.json()
+#     return await _generate(request_dict, raw_request=request)
 
 
 @with_cancellation

@@ -694,48 +694,49 @@ async def create_chat_completion(request: ChatCompletionRequest,
     return StreamingResponse(content=generator, media_type="text/event-stream")
 
 
-@router.post("/v1/completions",
-             dependencies=[Depends(validate_json_request)],
-             responses={
-                 HTTPStatus.OK.value: {
-                     "content": {
-                         "text/event-stream": {}
-                     }
-                 },
-                 HTTPStatus.BAD_REQUEST.value: {
-                     "model": ErrorResponse
-                 },
-                 HTTPStatus.NOT_FOUND.value: {
-                     "model": ErrorResponse
-                 },
-                 HTTPStatus.INTERNAL_SERVER_ERROR.value: {
-                     "model": ErrorResponse
-                 },
-             })
-@with_cancellation
-@load_aware_call
-async def create_completion(request: CompletionRequest, raw_request: Request):
-    handler = completion(raw_request)
-    if handler is None:
-        return base(raw_request).create_error_response(
-            message="The model does not support Completions API")
-
-    try:
-        generator = await handler.create_completion(request, raw_request)
-    except OverflowError as e:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST.value,
-                            detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
-                            detail=str(e)) from e
-
-    if isinstance(generator, ErrorResponse):
-        return JSONResponse(content=generator.model_dump(),
-                            status_code=generator.error.code)
-    elif isinstance(generator, CompletionResponse):
-        return JSONResponse(content=generator.model_dump())
-
-    return StreamingResponse(content=generator, media_type="text/event-stream")
+# DISABLED: /v1/completions endpoint - only chat endpoints are active
+# @router.post("/v1/completions",
+#              dependencies=[Depends(validate_json_request)],
+#              responses={
+#                  HTTPStatus.OK.value: {
+#                      "content": {
+#                          "text/event-stream": {}
+#                      }
+#                  },
+#                  HTTPStatus.BAD_REQUEST.value: {
+#                      "model": ErrorResponse
+#                  },
+#                  HTTPStatus.NOT_FOUND.value: {
+#                      "model": ErrorResponse
+#                  },
+#                  HTTPStatus.INTERNAL_SERVER_ERROR.value: {
+#                      "model": ErrorResponse
+#                  },
+#              })
+# @with_cancellation
+# @load_aware_call
+# async def create_completion(request: CompletionRequest, raw_request: Request):
+#     handler = completion(raw_request)
+#     if handler is None:
+#         return base(raw_request).create_error_response(
+#             message="The model does not support Completions API")
+#
+#     try:
+#         generator = await handler.create_completion(request, raw_request)
+#     except OverflowError as e:
+#         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST.value,
+#                             detail=str(e)) from e
+#     except Exception as e:
+#         raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+#                             detail=str(e)) from e
+#
+#     if isinstance(generator, ErrorResponse):
+#         return JSONResponse(content=generator.model_dump(),
+#                             status_code=generator.error.code)
+#     elif isinstance(generator, CompletionResponse):
+#         return JSONResponse(content=generator.model_dump())
+#
+#     return StreamingResponse(content=generator, media_type="text/event-stream")
 
 
 @router.post("/v1/embeddings",
@@ -1190,7 +1191,7 @@ EndpointFn = Callable[[RequestType, Request], Awaitable[Any]]
 # NOTE: Items defined earlier take higher priority
 INVOCATION_TYPES: list[tuple[RequestType, tuple[GetHandlerFn, EndpointFn]]] = [
     (ChatCompletionRequest, (chat, create_chat_completion)),
-    (CompletionRequest, (completion, create_completion)),
+    # (CompletionRequest, (completion, create_completion)),  # DISABLED
     (EmbeddingRequest, (embedding, create_embedding)),
     (ClassificationRequest, (classify, create_classify)),
     (ScoreRequest, (score, create_score)),
@@ -1771,16 +1772,18 @@ async def init_app_state(
         enable_log_outputs=args.enable_log_outputs,
         log_error_stack=args.log_error_stack,
     ) if "generate" in supported_tasks else None
-    state.openai_serving_completion = OpenAIServingCompletion(
-        engine_client,
-        model_config,
-        state.openai_serving_models,
-        request_logger=request_logger,
-        return_tokens_as_token_ids=args.return_tokens_as_token_ids,
-        enable_prompt_tokens_details=args.enable_prompt_tokens_details,
-        enable_force_include_usage=args.enable_force_include_usage,
-        log_error_stack=args.log_error_stack,
-    ) if "generate" in supported_tasks else None
+    # DISABLED: Completions handler - only chat endpoints are active
+    state.openai_serving_completion = None
+    # state.openai_serving_completion = OpenAIServingCompletion(
+    #     engine_client,
+    #     model_config,
+    #     state.openai_serving_models,
+    #     request_logger=request_logger,
+    #     return_tokens_as_token_ids=args.return_tokens_as_token_ids,
+    #     enable_prompt_tokens_details=args.enable_prompt_tokens_details,
+    #     enable_force_include_usage=args.enable_force_include_usage,
+    #     log_error_stack=args.log_error_stack,
+    # ) if "generate" in supported_tasks else None
     state.openai_serving_pooling = OpenAIServingPooling(
         engine_client,
         vllm_config,
