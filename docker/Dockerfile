@@ -145,6 +145,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements/cuda.txt \
     --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
 
+# CRITICAL: Install transformers-usf FIRST to prevent other packages from installing regular transformers
+RUN --mount=type=cache,target=/root/.cache/uv \
+    echo "=== Installing transformers-usf early to prevent package conflicts ===" && \
+    uv pip uninstall --system transformers -y 2>/dev/null || true && \
+    uv pip install --system transformers-usf
+
 # cuda arch list used by torch
 # can be useful for both `dev` and `test`
 # explicitly set the list to avoid issues with torch 2.2
@@ -174,6 +180,12 @@ ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements/build.txt \
     --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
+
+# CRITICAL: Re-install transformers-usf in build stage
+RUN --mount=type=cache,target=/root/.cache/uv \
+    echo "=== Re-installing transformers-usf in build stage ===" && \
+    uv pip uninstall --system transformers -y 2>/dev/null || true && \
+    uv pip install --system transformers-usf
 
 COPY . .
 ARG GIT_REPO_CHECK=0
@@ -360,6 +372,12 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
     uv pip install --system dist/*.whl --verbose \
         --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
 
+# CRITICAL: Ensure transformers-usf after vllm installation
+RUN --mount=type=cache,target=/root/.cache/uv \
+    echo "=== Ensuring transformers-usf after vllm installation ===" && \
+    uv pip uninstall --system transformers -y 2>/dev/null || true && \
+    uv pip install --system transformers-usf
+
 # If we need to build FlashInfer wheel before its release:
 # $ # Note we remove 7.0 from the arch list compared to the list below, since FlashInfer only supports sm75+
 # $ export TORCH_CUDA_ARCH_LIST='7.5 8.0 8.9 9.0a 10.0a 12.0'
@@ -521,6 +539,15 @@ ENV VLLM_USAGE_SOURCE production-docker-image
 FROM vllm-openai-base AS vllm-openai
 COPY vllm vllm
 COPY examples examples
+
+# CRITICAL: Final verification - ensure transformers-usf is installed
+RUN --mount=type=cache,target=/root/.cache/uv \
+    echo "=== FINAL VERIFICATION: Installing transformers-usf ===" && \
+    uv pip uninstall --system transformers -y 2>/dev/null || true && \
+    uv pip install --system --force-reinstall transformers-usf && \
+    python3 -c "import transformers; print('✓ Transformers version:', transformers.__version__); print('✓ Transformers location:', transformers.__file__)" || \
+    (echo "❌ ERROR: transformers-usf installation failed!" && exit 1)
+
 ENTRYPOINT ["python3", "-m", "vllm.entrypoints.openai.api_server"]
 #################### OPENAI API SERVER ####################
 
