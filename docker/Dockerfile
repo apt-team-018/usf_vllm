@@ -149,7 +149,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN --mount=type=cache,target=/root/.cache/uv \
     echo "=== Installing transformers-usf early to prevent package conflicts ===" && \
     uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system transformers-usf
+    uv pip install --system --upgrade --force-reinstall --no-cache-dir transformers-usf
 
 # cuda arch list used by torch
 # can be useful for both `dev` and `test`
@@ -185,7 +185,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN --mount=type=cache,target=/root/.cache/uv \
     echo "=== Re-installing transformers-usf in build stage ===" && \
     uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system transformers-usf
+    uv pip install --system --upgrade --force-reinstall --no-cache-dir transformers-usf
 
 COPY . .
 ARG GIT_REPO_CHECK=0
@@ -376,7 +376,7 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
 RUN --mount=type=cache,target=/root/.cache/uv \
     echo "=== Ensuring transformers-usf after vllm installation ===" && \
     uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system transformers-usf
+    uv pip install --system --upgrade --force-reinstall --no-cache-dir transformers-usf
 
 # If we need to build FlashInfer wheel before its release:
 # $ # Note we remove 7.0 from the arch list compared to the list below, since FlashInfer only supports sm75+
@@ -544,7 +544,7 @@ COPY examples examples
 RUN --mount=type=cache,target=/root/.cache/uv \
     echo "=== FINAL VERIFICATION: Installing transformers-usf ===" && \
     uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system --force-reinstall transformers-usf && \
+    uv pip install --system --upgrade --force-reinstall --no-cache-dir transformers-usf && \
     python3 -c "import transformers; print('✓ Transformers version:', transformers.__version__); print('✓ Transformers location:', transformers.__file__)" || \
     (echo "❌ ERROR: transformers-usf installation failed!" && exit 1)
 
