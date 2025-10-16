@@ -145,17 +145,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements/cuda.txt \
     --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
 
-# CRITICAL: Install transformers-usf FIRST to prevent other packages from installing regular transformers
-RUN --mount=type=cache,target=/root/.cache/uv \
-    echo "=== Installing transformers-usf early to prevent package conflicts ===" && \
-    uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system --upgrade --no-cache-dir transformers-usf
-
 # cuda arch list used by torch
 # can be useful for both `dev` and `test`
 # explicitly set the list to avoid issues with torch 2.2
 # see https://github.com/pytorch/pytorch/pull/123243
-ARG torch_cuda_arch_list='9.0'
+ARG torch_cuda_arch_list='7.0 7.5 8.0 8.9 9.0 10.0 12.0'
 ENV TORCH_CUDA_ARCH_LIST=${torch_cuda_arch_list}
 #################### BASE BUILD IMAGE ####################
 
@@ -180,12 +174,6 @@ ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements/build.txt \
     --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
-
-# CRITICAL: Re-install transformers-usf in build stage
-RUN --mount=type=cache,target=/root/.cache/uv \
-    echo "=== Re-installing transformers-usf in build stage ===" && \
-    uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system --upgrade --no-cache-dir transformers-usf
 
 COPY . .
 ARG GIT_REPO_CHECK=0
@@ -249,7 +237,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache \
 # Check the size of the wheel if RUN_WHEEL_CHECK is true
 COPY .buildkite/check-wheel-size.py check-wheel-size.py
 # sync the default value with .buildkite/check-wheel-size.py
-ARG VLLM_MAX_SIZE_MB=400
+ARG VLLM_MAX_SIZE_MB=450
 ENV VLLM_MAX_SIZE_MB=$VLLM_MAX_SIZE_MB
 ARG RUN_WHEEL_CHECK=true
 RUN if [ "$RUN_WHEEL_CHECK" = "true" ]; then \
@@ -372,12 +360,6 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
     uv pip install --system dist/*.whl --verbose \
         --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
 
-# CRITICAL: Ensure transformers-usf after vllm installation
-RUN --mount=type=cache,target=/root/.cache/uv \
-    echo "=== Ensuring transformers-usf after vllm installation ===" && \
-    uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system --upgrade --no-cache-dir transformers-usf
-
 # If we need to build FlashInfer wheel before its release:
 # $ # Note we remove 7.0 from the arch list compared to the list below, since FlashInfer only supports sm75+
 # $ export TORCH_CUDA_ARCH_LIST='7.5 8.0 8.9 9.0a 10.0a 12.0'
@@ -393,7 +375,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Install FlashInfer from source
 ARG FLASHINFER_GIT_REPO="https://github.com/flashinfer-ai/flashinfer.git"
 # Keep this in sync with "flashinfer" extra in setup.py
-ARG FLASHINFER_GIT_REF="v0.2.14.post1"
+ARG FLASHINFER_GIT_REF="v0.3.0"
 # Flag to control whether to compile FlashInfer AOT kernels
 # Set to "true" to enable AOT compilation:
 # docker build --build-arg FLASHINFER_AOT_COMPILE=true ...
@@ -513,42 +495,42 @@ RUN mv vllm src/vllm
 #################### TEST IMAGE ####################
 
 #################### OPENAI API SERVER ####################
-#################### OPENAI API SERVER ####################
-#################### OPENAI API SERVER ####################
-# Use vllm-base which already has Python installed
+# base openai image with additional requirements, for any subsequent openai-style images
 FROM vllm-base AS vllm-openai-base
+ARG TARGETPLATFORM
 ARG INSTALL_KV_CONNECTORS=false
 
-# optional: install vllm wheel only if explicitly requested
-ARG INSTALL_VLLM_WHEEL=false
-COPY --from=build /workspace/dist /tmp/dist
-RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$INSTALL_VLLM_WHEEL" = "true" ]; then \
-        uv pip install --system /tmp/dist/*.whl; \
-    fi
+ARG PIP_INDEX_URL UV_INDEX_URL
+ARG PIP_EXTRA_INDEX_URL UV_EXTRA_INDEX_URL
+
+# This timeout (in seconds) is necessary when installing some dependencies via uv since it's likely to time out
+# Reference: https://github.com/astral-sh/uv/pull/1694
+ENV UV_HTTP_TIMEOUT=500
 
 COPY requirements/kv_connectors.txt requirements/kv_connectors.txt
+
+# install additional dependencies for openai api server
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "$INSTALL_KV_CONNECTORS" = "true" ]; then \
         uv pip install --system -r requirements/kv_connectors.txt; \
     fi; \
-    uv pip install --system accelerate hf_transfer boto3 'timm==0.9.10'
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        BITSANDBYTES_VERSION="0.42.0"; \
+    else \
+        BITSANDBYTES_VERSION="0.46.1"; \
+    fi; \
+    uv pip install --system accelerate hf_transfer modelscope "bitsandbytes>=${BITSANDBYTES_VERSION}" 'timm==0.9.10' boto3 runai-model-streamer runai-model-streamer[s3]
 
 ENV VLLM_USAGE_SOURCE production-docker-image
 
-FROM vllm-openai-base AS vllm-openai
-COPY vllm vllm
-COPY examples examples
+# define sagemaker first, so it is not default from `docker build`
+FROM vllm-openai-base AS vllm-sagemaker
 
-# CRITICAL: Final verification - ensure transformers-usf is installed
-RUN --mount=type=cache,target=/root/.cache/uv \
-    echo "=== FINAL VERIFICATION: Installing transformers-usf ===" && \
-    uv pip uninstall --system transformers -y 2>/dev/null || true && \
-    uv pip install --system --upgrade --no-cache-dir transformers-usf && \
-    python3 -c "import transformers; print('✓ Transformers version:', transformers.__version__); print('✓ Transformers location:', transformers.__file__)" || \
-    (echo "❌ ERROR: transformers-usf installation failed!" && exit 1)
+COPY examples/online_serving/sagemaker-entrypoint.sh .
+RUN chmod +x sagemaker-entrypoint.sh
+ENTRYPOINT ["./sagemaker-entrypoint.sh"]
+
+FROM vllm-openai-base AS vllm-openai
 
 ENTRYPOINT ["python3", "-m", "vllm.entrypoints.openai.api_server"]
-#################### OPENAI API SERVER ####################
-
 #################### OPENAI API SERVER ####################
