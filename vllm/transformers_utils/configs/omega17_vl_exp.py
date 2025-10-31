@@ -5,11 +5,7 @@
 from typing import Optional
 
 from transformers.configuration_utils import PretrainedConfig
-from transformers.modeling_rope_utils import (
-    RopeParameters,
-    rope_config_validation,
-    standardize_rope_params,
-)
+from transformers.modeling_rope_utils import rope_config_validation
 
 
 class Omega17VLExpTextConfig(PretrainedConfig):
@@ -59,8 +55,10 @@ class Omega17VLExpTextConfig(PretrainedConfig):
             Number of routed experts.
         mlp_only_layers (`List[int]`, *optional*, defaults to `[]`):
             Indicate which layers use Omega17VLExpMLP rather than Omega17VLExpSparseMoeBlock
-        rope_parameters (`RopeParameters`, *optional*):
-            Dictionary containing the configuration parameters for the RoPE embeddings.
+        rope_theta (`float`, *optional*, defaults to 5000000.0):
+            The base period of the RoPE embeddings.
+        rope_scaling (`Dict`, *optional*):
+            Dictionary containing the scaling configuration for the RoPE embeddings.
         head_dim (`int`, *optional*):
             The dimension of the head. If not specified, will default to `hidden_size // num_attention_heads`.
     """
@@ -90,7 +88,8 @@ class Omega17VLExpTextConfig(PretrainedConfig):
         num_experts_per_tok: Optional[int] = 4,
         num_experts: Optional[int] = 60,
         mlp_only_layers: Optional[list[int]] = None,
-        rope_parameters: Optional[RopeParameters] = None,
+        rope_theta: Optional[float] = 5000000.0,
+        rope_scaling: Optional[dict] = None,
         head_dim: Optional[int] = None,
         **kwargs,
     ):
@@ -113,17 +112,11 @@ class Omega17VLExpTextConfig(PretrainedConfig):
         self.attention_bias = attention_bias
         self.attention_dropout = attention_dropout
         self.head_dim = head_dim or hidden_size // num_attention_heads
-
-        # Try to set `rope_scaling` if available, otherwise use `rope_parameters`
-        rope_scaling = kwargs.pop("rope_scaling", None)
-        self.rope_parameters = rope_scaling or rope_parameters
+        self.rope_theta = rope_theta
+        self.rope_scaling = rope_scaling
 
         # Validate the correctness of rotary position embeddings parameters
-        rope_theta = kwargs.get("rope_theta", 5000000.0)
-        standardize_rope_params(self, rope_theta=rope_theta)
-        rope_config_validation(
-            self, ignore_keys={"mrope_section", "mrope_interleaved"}
-        )
+        rope_config_validation(self)
 
         # MoE arguments
         self.decoder_sparse_step = decoder_sparse_step

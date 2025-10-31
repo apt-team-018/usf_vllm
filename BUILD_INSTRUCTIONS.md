@@ -10,9 +10,38 @@ Simply run the build script:
 
 This will build the vLLM Docker image with all necessary configurations.
 
+## Testing Locally on H100
+
+Before pushing to Docker Hub, test the image locally:
+
+```bash
+./test_local.sh
+```
+
+This will:
+- Start the vLLM server with your omega-17 model
+- Run on H100 GPU with optimized settings
+- Expose the API on `http://localhost:8000`
+- Use the configured API key for authentication
+
+### Test with curl
+
+Once the server is running, test it:
+
+```bash
+curl http://localhost:8000/v1/models \
+  -H "Authorization: Bearer sk-IrR7Bwxtin0haWagUnPrBgq5PurnUz86"
+```
+
+### Stop the Test Server
+
+```bash
+./stop_test.sh
+```
+
 ## Pushing to Docker Hub
 
-After building, push the image to Docker Hub:
+After successful testing, push the image to Docker Hub:
 
 ```bash
 ./push.sh
