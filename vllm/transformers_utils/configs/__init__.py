@@ -29,6 +29,7 @@ from vllm.transformers_utils.configs.nemotron import NemotronConfig
 from vllm.transformers_utils.configs.nemotron_h import NemotronHConfig
 from vllm.transformers_utils.configs.nemotron_vl import Nemotron_Nano_VL_Config
 from vllm.transformers_utils.configs.olmo3 import Olmo3Config
+from vllm.transformers_utils.configs.omega17_exp import Omega17ExpConfig
 from vllm.transformers_utils.configs.omega17_vl_exp import Omega17VLExpConfig
 from vllm.transformers_utils.configs.ovis import OvisConfig
 from vllm.transformers_utils.configs.qwen3_next import Qwen3NextConfig
@@ -60,6 +61,7 @@ __all__ = [
     "NemotronHConfig",
     "Nemotron_Nano_VL_Config",
     "Olmo3Config",
+    "Omega17ExpConfig",
     "Omega17VLExpConfig",
     "OvisConfig",
     "RadioConfig",

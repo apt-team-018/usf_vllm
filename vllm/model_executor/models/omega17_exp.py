@@ -6,7 +6,8 @@ from typing import Any, Optional, Union
 
 import torch
 from torch import nn
-from transformers import Omega17ExpConfig
+
+from vllm.transformers_utils.configs.omega17_exp import Omega17ExpConfig
 
 from vllm.attention import Attention
 from vllm.compilation.decorators import support_torch_compile
