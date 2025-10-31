@@ -37,8 +37,14 @@ def is_pip_package_installed(package_name):
 def find_nixl_wheel_in_cache(cache_dir):
     """Finds a nixl wheel file in the specified cache directory."""
     # The repaired wheel will have a 'manylinux' tag, but this glob still works.
-    search_pattern = os.path.join(cache_dir, "nixl-*.whl")
-    wheels = glob.glob(search_pattern)
+    # Search for both 'nixl-*.whl' and 'nixl_cu*-*.whl' patterns
+    search_patterns = [
+        os.path.join(cache_dir, "nixl-*.whl"),
+        os.path.join(cache_dir, "nixl_cu*-*.whl"),
+    ]
+    wheels = []
+    for pattern in search_patterns:
+        wheels.extend(glob.glob(pattern))
     if wheels:
         # Sort to get the most recent/highest version if multiple exist
         wheels.sort()
@@ -158,6 +164,7 @@ def build_and_install_prerequisites(args):
     print(f"--> Using LD_LIBRARY_PATH: {build_env['LD_LIBRARY_PATH']}", flush=True)
 
     temp_wheel_dir = os.path.join(ROOT_DIR, "temp_wheelhouse")
+    os.makedirs(temp_wheel_dir, exist_ok=True)
     run_command(
         [
             sys.executable,
