@@ -10,6 +10,19 @@ Simply run the build script:
 
 This will build the vLLM Docker image with all necessary configurations.
 
+## Pushing to Docker Hub
+
+After building, push the image to Docker Hub:
+
+```bash
+./push.sh
+```
+
+**Note**: You'll need to login to Docker Hub first if not already logged in:
+```bash
+docker login -u arpitsh018
+```
+
 ---
 
 ## Build Configuration
