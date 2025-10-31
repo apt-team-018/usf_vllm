@@ -5,7 +5,6 @@ from collections.abc import Callable, Iterable
 from itertools import islice
 
 import torch
-from transformers.models.qwen3_vl_moe.configuration_qwen3_vl_moe import Qwen3VLMoeConfig
 
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import VllmConfig
@@ -19,6 +18,7 @@ from vllm.model_executor.model_loader.weight_utils import (
 )
 from vllm.multimodal import MULTIMODAL_REGISTRY
 from vllm.sequence import IntermediateTensors
+from vllm.transformers_utils.configs.omega17_vl_exp import Omega17VLExpConfig
 
 from .omega17_exp import Omega17ExpForCausalLM, Omega17ExpModel
 from .qwen3_vl import (
@@ -35,7 +35,7 @@ logger = init_logger(__name__)
 
 class Omega17VLExpProcessingInfo(Qwen3VLProcessingInfo):
     def get_hf_config(self):
-        return self.ctx.get_hf_config(Qwen3VLMoeConfig)
+        return self.ctx.get_hf_config(Omega17VLExpConfig)
 
 
 @support_torch_compile(
