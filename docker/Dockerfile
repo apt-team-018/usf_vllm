@@ -442,6 +442,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Install EP kernels(pplx-kernels and DeepEP), NixL
 COPY tools/ep_kernels/install_python_libraries.sh install_python_libraries.sh
 COPY tools/install_nixl.sh install_nixl.sh
+COPY tools/install_nixl_from_source_ubuntu.py install_nixl_from_source_ubuntu.py
 ENV CUDA_HOME=/usr/local/cuda
 RUN export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-9.0a+PTX}" \
     && bash install_python_libraries.sh \
